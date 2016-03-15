@@ -6,5 +6,5 @@ It uses a simple HTTP request to get the HEX code of the current color.
 
 Used Libraries:
 
-ESP8266WiFi
+ESP8266WiFi<br>
 Adafruit_NeoPixel
