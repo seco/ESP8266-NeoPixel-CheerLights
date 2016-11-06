@@ -17,6 +17,8 @@ const char host[] = "api.thingspeak.com";
 // The brightness, 1-255
 int brightness = 50;
 
+uint32_t currentColor = strip.Color(0, 0, 0);
+
 void setup() {
     Serial.begin(115200);
     Serial.flush();
@@ -26,9 +28,15 @@ void setup() {
     Serial.println(ssid);
 
     WiFi.begin(ssid, password);
+    
+    strip.begin();
+    strip.show();
+
+    // Set the brightness
+    strip.setBrightness(brightness);
 
     while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
+        cycleLed(40);
         Serial.print(".");
     }
 
@@ -36,20 +44,6 @@ void setup() {
     Serial.println("WiFi connected");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
-
-    strip.begin();
-    strip.show();
-
-    // Set the brightness
-    strip.setBrightness(brightness);
-}
-
-void colorWipe(uint32_t c, uint8_t wait) {
-    for(uint16_t i=0; i<strip.numPixels(); i++) {
-        strip.setPixelColor(i, c);
-        strip.show();
-        delay(wait);
-    }
 }
 
 void loop() {
@@ -77,13 +71,23 @@ void loop() {
 
     Serial.println("Reading reply");
 
+    unsigned long timeout = millis();
+    while (client.available() == 0) {
+      if (millis() - timeout > 5000) {
+        Serial.println("Client Timeout !");
+        client.stop();
+        return;
+      }
+    }
+
     // Read all the lines of the reply from server and scan for hex color
-    while(client.available()) {
-        Serial.println("Client available");
+    while(client.available() > 0) {
         unsigned long color;
         String line = client.readStringUntil('\n');
 
         if ((line[0] == '#') && (line.length() == 8)) {
+          Serial.println("Color Received: ");
+          Serial.println(line);
     
           // Get rid of '#' and convert it to integer
           int number = (int) strtol(&line[1], NULL, 16);
@@ -93,11 +97,12 @@ void loop() {
           int g = number >> 8 & 0xFF;
           int b = number & 0xFF;
           
-          // Change the color
-          colorWipe(strip.Color(r,g,b),150);
+          uint32_t newColor = strip.Color(r,g,b);
           
-          Serial.print("Color Received: ");
-          Serial.println(line);
+          // Change the color
+          fadeUpdate(currentColor, newColor, 15);
+
+          currentColor = newColor;
       }
     }
     delay(refreshInterval);
